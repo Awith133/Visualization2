@@ -26,27 +26,30 @@ local_least_euclidian_distances = []
 g_number_of_waypoints_within_threshold = 0
 global_waypoints_threshold_distance = 15	# distance in (m)
 local_waypoints_threshold_distance = 1	# distance in (m)
-g_local_waypoint_count = 1
-g_local_waypoints = np.array([[0,0]])	#Random default initialization
+g_local_waypoint_count = 0
+# g_local_waypoints = np.array([[0,0]])	#Random default initialization
+g_local_waypoints = None
 GLOBAL_MAP_RESOLUTION = 5
 GLOBAL_WAYPOINT_METRIC = 80	#80%
 LOCAL_WAYPOINT_METRIC = 60	#60%
+ROBOT_CENTER_TO_FRONT_DISTANCE = 0.25 #m
 
 #==========================================================================================================================================
 
 def local_waypoint_callback(msg):
 	global g_local_waypoints
 	global g_local_waypoint_count
-	if(g_local_waypoint_count==1):
+	print("In localwaypoint callback : {0}".format(g_local_waypoints))
+	if(g_local_waypoint_count==0):
 		g_local_waypoints = np.array([[msg.pose.pose.position.x,msg.pose.pose.position.y]])
 	else:
 		g_local_waypoints = np.vstack((g_local_waypoints,np.array([[msg.pose.pose.position.x,msg.pose.pose.position.y]])))
 
-def pit_image_callback(msg):			#Use the msg.flag to see if you need to keep publishing old message or use the new one
-	rospy.loginfo('Image received...')
-	image = CvBridge().imgmsg_to_cv2(msg)
-	ax2.imshow(image)
-	ax2.axis('off')
+# def pit_image_callback(msg):			#Use the msg.flag to see if you need to keep publishing old message or use the new one
+# 	rospy.loginfo('Image received...')
+# 	image = CvBridge().imgmsg_to_cv2(msg)
+# 	ax2.imshow(image)
+# 	ax2.axis('off')
 
 def get_least_euclidian_distances(global_waypoints,pit_edges,distance_threshold):
 	least_euclidian_distances = []
@@ -149,47 +152,49 @@ def animate(frames):
         verticalalignment='top', bbox=props, weight='bold')
 	# ax1.set_xticks(x)
 	# ax1.set_xticklabels(x)
-	ax2.get_xaxis().set_ticks([])
+	# ax2.get_xaxis().set_ticks([])
 	ax1.legend()
 	# autolabel(rects1,ax1)
 	# fig.tight_layout()
 
-	''' Future code to be used once Ayush's topic exists'''
-	if(g_local_waypoint_count<g_local_waypoints.shape[0]):
+	if(g_local_waypoints is not None and g_local_waypoint_count<g_local_waypoints.shape[0]):
 		g_local_waypoint_count+=1
 		plot_len = min(g_local_waypoint_count,g_local_waypoints.shape[0])
 		ax3.clear()
-		pdb.set_trace()
+		print("I am here ************************************")
 		local_least_euclidian_distances,number_of_waypoints_within_threshold = get_least_euclidian_distances(g_local_waypoints[0:plot_len,:],global_pit_edges,local_waypoints_threshold_distance)
 		# local_average = sum(local_least_euclidian_distances) / len(local_least_euclidian_distances)
 		local_x = np.arange(len(local_least_euclidian_distances))
-		rects2 = ax2.bar(local_x - width/2, local_least_euclidian_distances, width, label='')
+		local_least_euclidian_distances = [x - ROBOT_CENTER_TO_FRONT_DISTANCE for x in local_least_euclidian_distances]
+		rects2 = ax3.bar(local_x - width/4, local_least_euclidian_distances, width, label='')
 
 		ax3.set_ylabel('Distance of local waypoints from pit edge (m)',fontsize=28)
 		ax3.set_xlabel('Local Waypoint number',fontsize=28)
 		ax3.set_title('Distances of local waypoints from pit edge',fontsize=28)
 		set_font_size(ax3)
-		ax3.hlines(y=local_waypoints_threshold_distance, xmin=-20, xmax=len(local_x), linestyle='--', color='r')
-		ax3.text(-18, local_waypoints_threshold_distance*1.02, 'Threshold value',fontsize=20)
+		ax3.hlines(y=local_waypoints_threshold_distance, xmin=local_x[0]-1, xmax=len(local_x), linestyle='--', color='r')
+		ax3.text(local_x[0]-1, local_waypoints_threshold_distance*1.02, 'Threshold value',fontsize=20)
 
 		# place a text box in upper left in axes coords
 		local_metric = number_of_waypoints_within_threshold*100/len(local_least_euclidian_distances)
 		textstr = '% of waypoints within threshold: {:.2f}'.format(local_metric)
-		if(metric>LOCAL_WAYPOINT_METRIC):
+		if(local_metric>LOCAL_WAYPOINT_METRIC):
 			props = dict(boxstyle='round', facecolor='lightgreen', alpha=0.5)
 		else:
 			props = dict(boxstyle='round', facecolor='darksalmon', alpha=0.5)
 
-		ax3.text(0.02, 0.99, textstr, transform=ax3.transAxes, fontsize=14,verticalalignment='top', bbox=props, weight='bold')
+		ax3.text(0.02, 0.99, textstr, transform=ax3.transAxes, fontsize=22,verticalalignment='top', bbox=props, weight='bold')
 		ax3.set_xticks(local_x)
 		ax3.set_xticklabels(local_x)
 		ax3.legend()
 		autolabel(rects2,ax3)	
-
-	if(count<5):
-		stro = "/home/hash/Desktop/" + str(count) + ".png"
+		stro = "/home/hash/Desktop/pit_images_captured/" + str(g_local_waypoint_count) + ".png"
 		img_saver_client(stro)
-		count+=1
+
+	# if(count<5):
+	# 	stro = "/home/hash/Desktop/pit_images_captured" + str(count) + ".png"
+	# 	img_saver_client(stro)
+	# 	count+=1
 
 
 	# viz_path = "/home/hash/catkin_ws/src/visualization"
@@ -226,7 +231,7 @@ def autolabel(rects,ax):
 if __name__ == '__main__':
 	rospy.init_node('visualize', anonymous=True)
 	# rospy.Subscriber("/global_waypoint_dist", Range, global_waypoint_dist_callback)
-	rospy.Subscriber("/apnapioneer3at/MultiSense_S21_meta_camera/image",Image,pit_image_callback,queue_size=1)
+	# rospy.Subscriber("/apnapioneer3at/MultiSense_S21_meta_camera/image",Image,pit_image_callback,queue_size=1)
 	rospy.Subscriber("/robot_at_edge_position",Odometry,local_waypoint_callback)
 	rate = rospy.Rate(50)
 	rospy.loginfo("In Main \n")
