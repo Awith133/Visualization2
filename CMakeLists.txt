@@ -67,6 +67,12 @@ find_package(catkin REQUIRED COMPONENTS
 #   Action2.action
 # )
 
+## Generate services in the 'srv' folder
+ add_service_files(
+   FILES 
+   img_call.srv
+ )
+
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES

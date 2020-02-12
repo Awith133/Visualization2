@@ -75,6 +75,7 @@ def get_global_waypoints_data():
 	global_waypoints = genfromtxt(global_waypoints_file_name, delimiter=',')		#TODO: Resolution transform these global waypoints
 	global_waypoints = transform_global_waypoints(global_waypoints)
 	pit_edges = genfromtxt(pit_edges_file_name, delimiter=',')
+	pit_edges = pit_edges/2
 	least_euclidian_distances,number_of_waypoints_within_threshold = get_least_euclidian_distances(global_waypoints,pit_edges,global_waypoints_threshold_distance)
 	return least_euclidian_distances,pit_edges,number_of_waypoints_within_threshold
 
